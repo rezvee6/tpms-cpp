@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indirect TPMS Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="3"/>
+        <circle cx="16" cy="16" r="5" fill="none" stroke="currentColor" stroke-width="2"/>
+        <g stroke="currentColor" stroke-width="2"><path d="M16 3v6M16 23v6M3 16h6M23 16h6"/></g>
+      </svg>
+      <div>
+        <h1>Indirect TPMS</h1>
+        <p>Tire pressure from ABS wheel-speed sensors only · C++17 → WebAssembly</p>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="play" class="btn primary" aria-label="Pause simulation">Pause</button>
+      <div class="seg" id="speeds" role="group" aria-label="Simulation speed">
+        <button data-speed="1">1×</button>
+        <button data-speed="10">10×</button>
+        <button data-speed="60" class="on">60×</button>
+        <button data-speed="300">300×</button>
+      </div>
+      <label class="field">Drive
+        <select id="scenario">
+          <option value="0">Highway</option>
+          <option value="1">Country</option>
+          <option value="2">City</option>
+          <option value="3">Mixed</option>
+        </select>
+      </label>
+      <label class="field">Road
+        <select id="road">
+          <option value="0">Smooth</option>
+          <option value="1" selected>Normal</option>
+          <option value="2">Rough</option>
+        </select>
+      </label>
+      <button id="recal" class="btn" title="Driver's TPMS reset: relearn the baseline at the current pressures">TPMS reset</button>
+      <button id="restart" class="btn ghost" title="New random car, tires and route">New drive</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card vehicle">
+      <div class="card-h">
+        <h2>Vehicle</h2>
+        <span id="telltale" class="telltale" title="TPMS warning lamp">
+          <svg viewBox="0 0 32 28" aria-hidden="true">
+            <path d="M6 4c-3 3-4 7-4 10s1 7 4 10M26 4c3 3 4 7 4 10s-1 7-4 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M8 22h16M16 6v10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            <circle cx="16" cy="19.5" r="1.6" fill="currentColor"/>
+          </svg>
+        </span>
+      </div>
+      <svg id="car" viewBox="0 0 420 400" role="img" aria-label="Top view of the car with tire states">
+        <defs>
+          <linearGradient id="body" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#2a3646"/><stop offset="1" stop-color="#1b2430"/>
+          </linearGradient>
+        </defs>
+        <rect x="140" y="30" width="140" height="340" rx="52" fill="url(#body)" stroke="#3a4a5e"/>
+        <path d="M158 120 Q210 98 262 120 L254 160 Q210 150 166 160 Z" fill="#0f151d" stroke="#3a4a5e"/>
+        <path d="M166 290 Q210 300 254 290 L258 318 Q210 332 162 318 Z" fill="#0f151d" stroke="#3a4a5e"/>
+        <rect x="166" y="168" width="88" height="114" rx="10" fill="#222d3a"/>
+        <text x="210" y="56" class="car-note">FRONT</text>
+        <g id="tires"></g>
+      </svg>
+
+      <div class="tire-ctrl">
+        <div class="tire-tabs" id="tireTabs" role="tablist" aria-label="Select tire"></div>
+        <div class="row">
+          <label for="pSlider">True pressure <output id="pOut">100%</output></label>
+          <input type="range" id="pSlider" min="40" max="110" step="1" value="100">
+        </div>
+        <div class="row btns">
+          <button class="btn" data-act="slow" title="0.7 psi/min">Slow leak</button>
+          <button class="btn" data-act="fast" title="7 psi/min">Puncture</button>
+          <button class="btn" data-act="fix">Reinflate</button>
+        </div>
+        <div class="row btns">
+          <button class="btn" data-act="all" title="E.g. a cold night or months without a top-up">All four −30%</button>
+          <button class="btn" data-act="fixall">Reinflate all</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="card status">
+        <div class="status-main">
+          <span id="pill" class="pill cal">CALIBRATING</span>
+          <span id="msg" class="msg">Learning baseline…</span>
+        </div>
+        <div class="progress" id="calBar"><div></div></div>
+        <dl class="stats">
+          <div><dt>Sim time</dt><dd id="sTime">0:00</dd></div>
+          <div><dt>Speed</dt><dd id="sSpeed">0 km/h</dd></div>
+          <div><dt>Lateral acc.</dt><dd id="sLat">0.0 m/s²</dd></div>
+          <div><dt>Radius samples</dt><dd id="sSamples">0</dd></div>
+        </dl>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h2>Pressure loss per tire</h2>
+          <span class="hint">solid = detector estimate · dashed = truth · red = warning threshold</span>
+        </div>
+        <canvas id="lossChart" class="chart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h2>Rolling-radius indicators</h2>
+          <span class="hint">wheel-speed ratios minus the learned baseline</span>
+        </div>
+        <canvas id="radChart" class="chart short"></canvas>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="card">
+        <div class="card-h">
+          <h2>Torsional resonance</h2>
+          <span class="hint">dashed = calibration · ▲ true</span>
+        </div>
+        <div class="spectra" id="spectra"></div>
+      </div>
+      <div class="card budget">
+        <div class="card-h"><h2>ECU budget</h2><span class="hint">measured live in this tab</span></div>
+        <div class="ram">
+          <div class="ram-top"><span>RAM</span><span id="ramText"></span></div>
+          <div class="ram-bar" id="ramBar"></div>
+          <div class="ram-legend" id="ramLegend"></div>
+        </div>
+        <dl class="kpis">
+          <div><dt>Detector time per edge</dt><dd id="kNs">–</dd></div>
+          <div><dt>Edge rate (4 wheels)</dt><dd id="kRate">–</dd></div>
+          <div><dt>CPU load in real time</dt><dd id="kLoad">–</dd></div>
+          <div><dt>Dropped edges</dt><dd id="kDrop">0</dd></div>
+        </dl>
+        <div class="gates">
+          <div class="ram-top"><span>Rolling-radius sample gating</span><span id="gateText"></span></div>
+          <div class="ram-bar" id="gateBar"></div>
+          <div class="ram-legend" id="gateLegend"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="card how">
+    <h2>How it works</h2>
+    <div class="how-grid">
+      <div>
+        <h3>1 · Tooth edges in</h3>
+        <p>Each ABS tone ring has 48 teeth. An ISR timestamps every edge from a 10 MHz timer into a lock-free queue (≈3–7k edges/s). The detector learns each tooth's machining error and resamples rim speed to a uniform 250 Hz.</p>
+      </div>
+      <div>
+        <h3>2 · Rolling radius</h3>
+        <p>A soft tire has a smaller rolling radius and spins faster. Diagonal, side and axle speed ratios are compared with a baseline (regressed on speed² and acceleration) learned after a TPMS reset. Cornering is removed using the yaw sensor.</p>
+      </div>
+      <div>
+        <h3>3 · Resonance</h3>
+        <p>The sidewall is a torsional spring. A 256-point FFT of rim speed shows a peak near 40 Hz that drops as pressure falls. This gives an absolute estimate, so it can detect all four tires losing pressure together, which the ratio method can't.</p>
+      </div>
+      <div>
+        <h3>Constraints</h3>
+        <p>Written for a Cortex-M4F: 32 KB RAM budget enforced by <code>static_assert</code>, no heap, no exceptions or RTTI, float only, twiddle and window tables computed at compile time, and wrap-safe 32-bit timer arithmetic.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="loading" class="loading">Loading WebAssembly…</div>
+  <script src="itpms.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
