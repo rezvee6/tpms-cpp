@@ -20,6 +20,9 @@ namespace itpms::sim {
 
 enum class Scenario : std::uint8_t { Highway, Country, City, Mixed };
 enum class Road : std::uint8_t { Smooth, Normal, Rough };
+// Raised lane markers: off, occasional lane changes across a stud line, or the
+// worst case of driving with one side on the line for the whole trip.
+enum class CatsEyes : std::uint8_t { Off, LaneChanges, Straddle };
 
 struct ToothEdge {
   std::uint32_t ticks;
@@ -60,6 +63,8 @@ class VehicleSim {
 
   void set_scenario(Scenario s) { scenario_ = s; seg_left_ = 0.0; }
   void set_road(Road r) { road_ = r; }
+  // Cat's eyes: one stud every 18 m under one side, front then rear wheel.
+  void set_cats_eyes(CatsEyes mode) { cats_eyes_ = mode; }
   void set_pressure(std::size_t w, double psi) { pressure_[w] = psi; }
   void set_pressure_fraction(std::size_t w, double frac) { pressure_[w] = frac * tire_[w].nominal_psi; }
   void set_leak(std::size_t w, double psi_per_min) { leak_[w] = psi_per_min; }
@@ -92,6 +97,9 @@ class VehicleSim {
   const TireParams& tire(std::size_t w) const { return tire_[w]; }
   Scenario scenario() const { return scenario_; }
   Road road() const { return road_; }
+  CatsEyes cats_eyes() const { return cats_eyes_; }
+  bool on_studs() const { return stud_left_ > 0.0; }
+  std::uint32_t stud_hits() const { return stud_hits_; }
 
  private:
   struct WheelState {
@@ -106,6 +114,7 @@ class VehicleSim {
 
   void step();
   void update_driver(double dt);
+  void update_studs(double dt);
   void new_speed_segment();
   void new_curve_segment();
   Scenario active_profile() const;
@@ -118,6 +127,17 @@ class VehicleSim {
   std::array<WheelState, kWheels> wheel_{};
   std::array<double, kWheels> pressure_{};
   std::array<double, kWheels> leak_{};
+
+  CatsEyes cats_eyes_ = CatsEyes::Off;
+  double odo_ = 0.0;           // distance travelled, m
+  double stud_left_ = 0.0;     // remaining time on a stud line, s
+  double stud_wait_ = 30.0;    // time until the next stud episode, s
+  double next_stud_ = 0.0;     // odometer position of the next stud under the front wheel
+  std::size_t stud_side_ = 0;  // 0 = left wheels, 1 = right wheels
+  std::array<double, 8> rear_hit_at_{};  // odometer positions where the rear wheel meets a stud
+  std::size_t rear_hits_ = 0;
+  std::array<std::uint8_t, kWheels> hits_now_{};
+  std::uint32_t stud_hits_ = 0;
 
   double t_ = 0.0;
   double carry_ = 0.0;

@@ -63,6 +63,7 @@ struct Status {
   bool all_low = false;
   std::uint32_t radius_samples = 0;
   std::array<std::uint32_t, kWheels> freq_frames{};
+  std::uint32_t impulse_frames = 0;  // FFT frames that needed impulse clipping
   std::array<std::uint32_t, kGateCount> gates{};
   std::uint32_t edges_processed = 0;
   std::uint32_t edges_dropped = 0;
@@ -151,6 +152,12 @@ class Detector {
   // fitted by recursive least squares during calibration (shared covariance:
   // all three indicators use the same regressors), then frozen.
   struct RadiusModel {
+    // Running median of the last kMedianTaps accepted samples per indicator:
+    // a stud strike or pothole is an outlier for a sample or two and is
+    // discarded, while a real pressure change passes with ~1 s of delay.
+    std::array<std::array<float, kMedianTaps>, kIndicators> recent{};
+    std::uint8_t recent_pos = 0;
+    std::uint8_t recent_fill = 0;
     std::array<std::array<float, 3>, 3> P{};
     std::array<std::array<float, 3>, kIndicators> theta{};
     std::array<float, kIndicators> err_var{};

@@ -65,6 +65,7 @@ void print_status(Harness& h) {
 int main(int argc, char** argv) {
   Scenario scenario = Scenario::Highway;
   Road road = Road::Normal;
+  CatsEyes cats_eyes = CatsEyes::Off;
   double minutes = 20.0;
   double every = 60.0;
   std::uint64_t seed = 1;
@@ -80,6 +81,9 @@ int main(int argc, char** argv) {
     } else if (a == "--road") {
       const std::string s = argv[++i];
       road = s == "smooth" ? Road::Smooth : s == "rough" ? Road::Rough : Road::Normal;
+    } else if (a == "--cats-eyes") {
+      const std::string m = argv[++i];
+      cats_eyes = m == "straddle" ? CatsEyes::Straddle : m == "off" ? CatsEyes::Off : CatsEyes::LaneChanges;
     } else if (a == "--minutes") {
       minutes = std::atof(v), ++i;
     } else if (a == "--every") {
@@ -91,7 +95,7 @@ int main(int argc, char** argv) {
     } else if (a == "--leak") {
       events.push_back(parse_event(v, true)), ++i;
     } else {
-      std::fprintf(stderr, "usage: %s [--scenario highway|country|city|mixed] [--road smooth|normal|rough]\n"
+      std::fprintf(stderr, "usage: %s [--scenario highway|country|city|mixed] [--road smooth|normal|rough] [--cats-eyes lanes|straddle]\n"
                            "          [--minutes N] [--every SEC] [--seed N] [--set MIN:WHEEL:FRAC] [--leak MIN:WHEEL:PSI_PER_MIN]\n",
                    argv[0]);
       return 2;
@@ -101,6 +105,7 @@ int main(int argc, char** argv) {
   auto h = std::make_unique<Harness>(seed);
   h->sim().set_scenario(scenario);
   h->sim().set_road(road);
+  h->sim().set_cats_eyes(cats_eyes);
 
   const auto steps = static_cast<int>(minutes * 60.0 / every);
   for (int i = 0; i < steps; ++i) {
@@ -122,6 +127,7 @@ int main(int argc, char** argv) {
   std::printf("\nedges=%llu dropped=%u  detector: %.1f ns/edge, %.4f%% of one core in real time\n",
               static_cast<unsigned long long>(p.edges), s.edges_dropped, p.detector_ns / static_cast<double>(p.edges),
               100.0 * p.detector_ns / (p.sim_seconds * 1e9));
+  std::printf("FFT frames with impulses clipped: %u\n", s.impulse_frames);
   std::printf("gates: ok=%u speed=%u brake=%u accel=%u corner=%u spread=%u\n", s.gates[0], s.gates[1], s.gates[2],
               s.gates[3], s.gates[4], s.gates[5]);
   std::printf("radius residual (x1e-4): diag %.2f side %.2f axle %.2f  noise %.2f %.2f %.2f\n", 1e4f * s.residual[0],

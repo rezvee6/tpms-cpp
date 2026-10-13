@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++
+      - name: Build
+        run: cmake --build build -j4
+      - name: Test
+        run: ./build/itpms_tests
+      - name: Benchmark
+        run: ./build/itpms_bench

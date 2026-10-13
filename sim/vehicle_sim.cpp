@@ -98,6 +98,52 @@ void VehicleSim::reset(std::uint64_t seed) {
   new_speed_segment();
   v_ = v_target_ > 0.0 ? v_target_ : 30.0 / 3.6;
   accel_ = 0.0;
+  odo_ = 0.0;
+  stud_left_ = 0.0;
+  stud_wait_ = rng_.uniform(10.0, 40.0);
+  rear_hits_ = 0;
+  hits_now_ = {};
+  stud_hits_ = 0;
+}
+
+void VehicleSim::update_studs(double dt) {
+  constexpr double kSpacing = 18.0;  // m between studs on a lane line
+  hits_now_ = {};
+  if (cats_eyes_ == CatsEyes::Off || v_ < 1.0) return;
+  if (cats_eyes_ == CatsEyes::Straddle && stud_left_ <= 0.0) {
+    stud_side_ = 0;
+    stud_left_ = 1e9;
+    next_stud_ = odo_;
+  }
+
+  if (stud_left_ > 0.0) {
+    stud_left_ -= dt;
+    while (odo_ >= next_stud_) {
+      const std::size_t front = stud_side_;  // FL or FR
+      ++hits_now_[front];
+      ++stud_hits_;
+      if (rear_hits_ < rear_hit_at_.size()) rear_hit_at_[rear_hits_++] = next_stud_ + kWheelbase;
+      next_stud_ += kSpacing;
+    }
+  } else if ((stud_wait_ -= dt) <= 0.0) {
+    // Mostly brief lane changes; sometimes a long straddle of the line.
+    stud_side_ = rng_.uniform() < 0.5 ? 0 : 1;
+    stud_left_ = rng_.uniform() < 0.15 ? rng_.uniform(10.0, 30.0) : rng_.uniform(1.0, 4.0);
+    stud_wait_ = rng_.uniform(20.0, 90.0);
+    next_stud_ = odo_ + rng_.uniform(0.0, kSpacing);
+  }
+
+  // The rear wheel on the same side meets each stud one wheelbase later.
+  std::size_t keep = 0;
+  for (std::size_t i = 0; i < rear_hits_; ++i) {
+    if (odo_ >= rear_hit_at_[i]) {
+      ++hits_now_[2 + stud_side_];
+      ++stud_hits_;
+    } else {
+      rear_hit_at_[keep++] = rear_hit_at_[i];
+    }
+  }
+  rear_hits_ = keep;
 }
 
 void VehicleSim::inflate_all() {
@@ -177,6 +223,8 @@ void VehicleSim::step() {
   const double dt = kStep;
   n_edges_ = 0;
   update_driver(dt);
+  odo_ += v_ * dt;
+  update_studs(dt);
 
   for (std::size_t w = 0; w < kWheels; ++w) {
     pressure_[w] = std::max(4.0, pressure_[w] - leak_[w] * dt / 60.0);
@@ -226,9 +274,17 @@ void VehicleSim::step() {
     ws.tors_v += (-2.0 * tp.zeta * wn * ws.tors_v - wn * wn * ws.tors_x) * dt + drive * sqrt_dt * rng_.gauss();
     ws.tors_x += ws.tors_v * dt;
 
+    // A stud strike: a sharp longitudinal force pulse kicks the torsional mode,
+    // and climbing the ~18 mm stud adds a little extra rotation.
+    double extra = 0.0;
+    for (std::uint8_t k = 0; k < hits_now_[w]; ++k) {
+      ws.tors_v -= 4.0 * rng_.uniform(0.7, 1.3);
+      extra += 0.01;
+    }
+
     const double rim = moving ? std::max(0.0, omega + ws.tors_v) : 0.0;
     double prev = ws.phi;
-    ws.phi += rim * dt;
+    ws.phi += rim * dt + extra;
     while (ws.phi >= ws.next_edge) {
       const double frac = std::clamp((ws.next_edge - prev) / (ws.phi - prev), 0.0, 1.0);
       const double te = t_ + frac * dt;

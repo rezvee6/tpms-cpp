@@ -26,14 +26,17 @@ class Demo {
   void reset(int seed) {
     const Scenario sc = h_->sim().scenario();
     const Road road = h_->sim().road();
+    const CatsEyes ce = h_->sim().cats_eyes();
     seed_ = static_cast<std::uint64_t>(seed);
     h_->reset(seed_);
     h_->sim().set_scenario(sc);
     h_->sim().set_road(road);
+    h_->sim().set_cats_eyes(ce);
   }
 
   void set_scenario(int s) { h_->sim().set_scenario(static_cast<Scenario>(s)); }
   void set_road(int r) { h_->sim().set_road(static_cast<Road>(r)); }
+  void set_cats_eyes(int m) { h_->sim().set_cats_eyes(static_cast<CatsEyes>(m)); }
   void set_pressure(int w, double frac) {
     h_->sim().set_pressure_fraction(static_cast<std::size_t>(w), frac);
     h_->sim().set_leak(static_cast<std::size_t>(w), 0.0);
@@ -62,6 +65,9 @@ class Demo {
     o.set("calProgress", s.calibration_progress);
     o.set("allLow", s.all_low);
     o.set("radiusSamples", s.radius_samples);
+    o.set("onStuds", sim.on_studs());
+    o.set("studHits", sim.stud_hits());
+    o.set("impulseFrames", s.impulse_frames);
 
     val wheels = val::array();
     for (std::size_t w = 0; w < kWheels; ++w) {
@@ -136,6 +142,7 @@ EMSCRIPTEN_BINDINGS(itpms) {
       .function("reset", &Demo::reset)
       .function("setScenario", &Demo::set_scenario)
       .function("setRoad", &Demo::set_road)
+      .function("setCatsEyes", &Demo::set_cats_eyes)
       .function("setPressure", &Demo::set_pressure)
       .function("setLeak", &Demo::set_leak)
       .function("inflateAll", &Demo::inflate_all)

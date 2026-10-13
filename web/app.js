@@ -157,6 +157,7 @@
     });
     $('scenario').addEventListener('change', (e) => demo.setScenario(Number(e.target.value)));
     $('road').addEventListener('change', (e) => demo.setRoad(Number(e.target.value)));
+    $('cats').addEventListener('change', (e) => demo.setCatsEyes(Number(e.target.value)));
     $('recal').addEventListener('click', () => demo.recalibrate());
     $('restart').addEventListener('click', () => {
       demo.reset(Math.floor(Math.random() * 1e9));
@@ -443,7 +444,7 @@
     $('sTime').textContent = fmtTime(snap.t);
     $('sSpeed').textContent = `${snap.speedTrue.toFixed(0)} km/h`;
     $('sLat').textContent = `${Math.abs(snap.latAccel).toFixed(1)} m/s²`;
-    $('sSamples').textContent = snap.radiusSamples.toLocaleString();
+    $('sStuds').textContent = snap.studHits.toLocaleString() + (snap.onStuds ? ' ●' : '');
   }
 
   function renderTires() {
@@ -468,6 +469,7 @@
   function renderBudget(ts) {
     const p = snap.perf;
     $('kDrop').textContent = p.dropped.toLocaleString();
+    $('kClip').textContent = snap.impulseFrames.toLocaleString();
     const show = (dNs, dEdges, dSim) => {
       if (dEdges <= 1000 || dSim <= 0) return;
       $('kNs').textContent = `${(dNs / dEdges).toFixed(1)} ns`;
@@ -521,7 +523,7 @@
   function applyUrlScript() {
     const q = new URLSearchParams(location.search);
     if (q.has('seed')) demo.reset(Number(q.get('seed')));
-    for (const [key, id, setter] of [['scenario', 'scenario', 'setScenario'], ['road', 'road', 'setRoad']]) {
+    for (const [key, id, setter] of [['scenario', 'scenario', 'setScenario'], ['road', 'road', 'setRoad'], ['cats', 'cats', 'setCatsEyes']]) {
       if (!q.has(key)) continue;
       $(id).value = q.get(key);
       demo[setter](Number(q.get(key)));

@@ -42,6 +42,13 @@
           <option value="2">Rough</option>
         </select>
       </label>
+      <label class="field">Cat's eyes
+        <select id="cats">
+          <option value="0">Off</option>
+          <option value="1">Lane changes</option>
+          <option value="2">Straddling</option>
+        </select>
+      </label>
       <button id="recal" class="btn" title="Driver's TPMS reset: relearn the baseline at the current pressures">TPMS reset</button>
       <button id="restart" class="btn ghost" title="New random car, tires and route">New drive</button>
     </div>
@@ -102,7 +109,7 @@
           <div><dt>Sim time</dt><dd id="sTime">0:00</dd></div>
           <div><dt>Speed</dt><dd id="sSpeed">0 km/h</dd></div>
           <div><dt>Lateral acc.</dt><dd id="sLat">0.0 m/s²</dd></div>
-          <div><dt>Radius samples</dt><dd id="sSamples">0</dd></div>
+          <div><dt>Stud strikes</dt><dd id="sStuds">0</dd></div>
         </dl>
       </div>
       <div class="card">
@@ -141,6 +148,7 @@
           <div><dt>Edge rate (4 wheels)</dt><dd id="kRate">–</dd></div>
           <div><dt>CPU load in real time</dt><dd id="kLoad">–</dd></div>
           <div><dt>Dropped edges</dt><dd id="kDrop">0</dd></div>
+          <div><dt>Impulse-clipped frames</dt><dd id="kClip">0</dd></div>
         </dl>
         <div class="gates">
           <div class="ram-top"><span>Rolling-radius sample gating</span><span id="gateText"></span></div>

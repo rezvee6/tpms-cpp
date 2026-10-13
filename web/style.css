@@ -110,7 +110,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .pill.warn { background: rgba(255,93,93,.18); color: var(--danger); }
 .msg { font-size: 15px; }
 .progress { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin: 12px 0 4px; }
-.progress > div { height: 100%; width: 0; background: var(--amber); transition: width .2s; }
+.progress > div { height: 100%; width: 0; background: var(--amber); }
 .progress.done > div { background: var(--ok); }
 .stats, .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 10px 0 0; }
 .stats dt, .kpis dt { color: var(--muted); font-size: 11px; }

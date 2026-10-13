@@ -18,11 +18,12 @@ shot hero.png        1440 1000 'seed=1&t=19&ev=12:FL:p0.7&pause=1'
 shot all-four.png    1440 1000 'seed=11&t=18&ev=11:ALL:p0.7&pause=1&sel=1'
 shot calibrating.png 1440 1000 'seed=2&t=2.5&pause=1'
 shot slow-leak.png   1440 1000 'seed=5&scenario=3&t=27&ev=12:RL:l0.7&pause=1&sel=2'
+shot cats-eyes.png   1440 1000 'seed=4&cats=2&t=16&ev=10:RL:p0.72&pause=1&sel=2'
 shot mobile.png       390 1700 'seed=1&t=19&ev=12:FL:p0.7&pause=1'
 
 # Close-up of the resonance panel during a puncture (2x pixel coordinates).
 shot tmp.png 1440 1000 'seed=1&t=19&ev=12:FL:p0.7&pause=1'
-magick tmp.png -crop 1056x880+2088+190 +repage spectra.png
+magick tmp.png -crop 780x700+2078+275 +repage spectra.png
 
 # Animated puncture: one scripted frame per 15 simulated seconds.
 rm -rf frames && mkdir frames
@@ -37,7 +38,7 @@ ffmpeg -loglevel error -y -framerate 6 -i frames/%03d.png \
 rm -rf frames tmp.png
 
 # Downscale stills to a sane README size.
-for f in hero all-four calibrating slow-leak spectra; do
+for f in hero all-four calibrating slow-leak cats-eyes spectra; do
   magick "$f.png" -resize '1600x>' -strip "$f.png"
 done
 magick mobile.png -resize '600x>' -strip mobile.png

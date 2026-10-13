@@ -28,6 +28,7 @@ inline constexpr float kBinHz = static_cast<float>(kResampleHz) / static_cast<fl
 static_assert(kPsdLoBin + kPsdBins <= kFftSize / 2, "PSD band must lie below Nyquist");
 
 // --- Plumbing --------------------------------------------------------------
+inline constexpr std::size_t kMedianTaps = 9;  // ~2.25 s pre-filter on rolling-radius samples
 inline constexpr std::size_t kEdgeQueueSize = 256;  // ISR -> task, ~35 ms of edges at 250 km/h
 inline constexpr std::size_t kRamBudgetBytes = 32 * 1024;
 
@@ -48,6 +49,10 @@ struct DetectorConfig {
   // Frequency-analysis gating.
   float freq_min_speed_kmh = 40.0f;
   float freq_max_accel = 2.0f;
+
+  // Impulse robustness (cat's eyes, potholes, expansion joints).
+  bool median_prefilter = true;   // ~2 s running median on rolling-radius samples
+  float impulse_clip_sigma = 4.5f;  // clip resampled speed beyond this many RMS (0 = off)
 
   // Time constants.
   float radius_period_s = 0.25f;      // one rolling-radius sample per period

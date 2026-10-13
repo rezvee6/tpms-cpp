@@ -55,6 +55,14 @@ inline bool reached(std::uint32_t now, std::uint32_t deadline) noexcept {
   return static_cast<std::int32_t>(now - deadline) >= 0;
 }
 
+// Median of a small fixed window: copy, then partial sort (no heap).
+float median(const std::array<float, kMedianTaps>& v, std::size_t n) noexcept {
+  std::array<float, kMedianTaps> tmp = v;
+  const auto mid = tmp.begin() + static_cast<std::ptrdiff_t>(n / 2);
+  std::nth_element(tmp.begin(), mid, tmp.begin() + static_cast<std::ptrdiff_t>(n));
+  return *mid;
+}
+
 float estimate_peak_hz(const std::array<float, kPsdBins>& psd) noexcept {
   std::size_t best = kFitHalf;
   for (std::size_t k = kFitHalf; k < kPsdBins - kFitHalf; ++k) {
@@ -229,10 +237,34 @@ void Detector::run_frame(std::size_t w) noexcept {
   }
   mean /= static_cast<float>(kFftSize);
   slope /= kDetrendSc2;
+  float sq = 0.0f;
+  float peak = 0.0f;
   for (std::size_t i = 0; i < kFftSize; ++i) {
     const float c = static_cast<float>(i) - 0.5f * static_cast<float>(kFftSize - 1);
-    frame_[i] = (frame_[i] - mean - slope * c) * kHann[i];
+    frame_[i] -= mean + slope * c;
+    sq += frame_[i] * frame_[i];
+    peak = std::max(peak, std::fabs(frame_[i]));
   }
+  // Road texture gives a Gaussian-like signal (crest factor ~3-4). A stud
+  // strike or pothole is a sharp spike that would whiten the averaged
+  // spectrum. Clip (winsorise) instead of dropping the frame, so a road that
+  // is studded for minutes never starves the estimator. Two passes: the
+  // first limit is inflated by the spike itself.
+  if (cfg_.impulse_clip_sigma > 0.0f) {
+    float limit = cfg_.impulse_clip_sigma * std::sqrt(sq / static_cast<float>(kFftSize));
+    if (peak > limit) {
+      ++status_.impulse_frames;
+      for (int pass = 0; pass < 2; ++pass) {
+        sq = 0.0f;
+        for (float& v : frame_) {
+          v = std::clamp(v, -limit, limit);
+          sq += v * v;
+        }
+        limit = cfg_.impulse_clip_sigma * std::sqrt(sq / static_cast<float>(kFftSize));
+      }
+    }
+  }
+  for (std::size_t i = 0; i < kFftSize; ++i) frame_[i] *= kHann[i];
 
   RealFft<kFftSize>::forward(frame_.data(), bins_.data());
 
@@ -303,6 +335,14 @@ void Detector::evaluate_radius() noexcept {
   // left/right speed ratio (1 - kT/2) / (1 + kT/2) using the yaw sensor.
   const float h = 0.5f * cfg_.track_width_m * vehicle_.yaw_rate_rps / v;
   x[kSide] = (rate[FL] + rate[RL]) / (rate[FR] + rate[RR]) * (1.0f + h) / (1.0f - h) - 1.0f;
+
+  // ~2 s running median: robust to isolated impulsive samples.
+  auto& m = model_;
+  for (std::size_t j = 0; j < kIndicators; ++j) m.recent[j][m.recent_pos] = x[j];
+  m.recent_pos = static_cast<std::uint8_t>((m.recent_pos + 1u) % kMedianTaps);
+  if (m.recent_fill < kMedianTaps) ++m.recent_fill;
+  if (cfg_.median_prefilter)
+    for (std::size_t j = 0; j < kIndicators; ++j) x[j] = median(m.recent[j], m.recent_fill);
 
   const float vn = v / kRefSpeed;
   const std::array<float, 3> phi = {1.0f, vn * vn, status_.accel_mps2};

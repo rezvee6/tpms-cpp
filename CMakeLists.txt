@@ -35,3 +35,7 @@ target_link_libraries(itpms_bench PRIVATE itpms_sim)
 
 enable_testing()
 add_test(NAME itpms_tests COMMAND itpms_tests)
+
+find_package(Threads REQUIRED)
+add_executable(itpms_accuracy tools/accuracy.cpp)
+target_link_libraries(itpms_accuracy PRIVATE itpms_sim Threads::Threads)
